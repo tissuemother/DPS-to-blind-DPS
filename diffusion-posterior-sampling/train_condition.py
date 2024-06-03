@@ -16,15 +16,6 @@ from data.dataloader import get_dataset, get_dataloader
 from util.img_utils import clear_color, mask_generator
 from util.logger import get_logger
 
-from guided_diffusion.script_util import (
-    NUM_CLASSES,
-    model_and_diffusion_defaults,
-    classifier_defaults,
-    create_model_and_diffusion,
-    create_classifier,
-    add_dict_to_argparser,
-    args_to_dict,
-)
 
 def load_yaml(file_path: str) -> dict:
     with open(file_path) as f:
@@ -69,7 +60,7 @@ def main():
     # Load model
     model = create_model(**model_config)
     model = model.to(device)
-    model.eval()
+    model.train()
     
     
     

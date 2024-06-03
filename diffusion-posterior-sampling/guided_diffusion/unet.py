@@ -145,6 +145,7 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
             if isinstance(layer, TimestepBlock):
                 x = layer(x, emb)
             else:
+                x = x.float()
                 x = layer(x)
         return x
 
