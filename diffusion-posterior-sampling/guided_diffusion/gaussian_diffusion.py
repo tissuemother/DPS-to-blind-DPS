@@ -166,7 +166,19 @@ class GaussianDiffusion:
             == x_start.shape[0]
         )
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
-
+    def p_sample(self, model, x, t,cond_fn):
+        out = self.p_mean_variance(model,x,t)
+        noise = th.randn_like(x)
+        nonzero_mask = (
+            (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
+        )  # no noise when t == 0
+        if cond_fn is not None:
+            out["mean"] = self.condition_mean(
+                cond_fn, out, x, t, model_kwargs=model_kwargs
+            )
+        sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
+        return {"sample": sample, "pred_xstart": out["pred_xstart"]}
+        
     def p_sample_loop(self,
                       model,
                       x_start,
@@ -207,7 +219,7 @@ class GaussianDiffusion:
 
         return img       
     
-    def condition_mean(self, cond_fn, p_mean_var, x, t, model_kwargs=None):
+    def condition_mean(self, cond_fn, p_mean_var, x, t):
         """
         Compute the mean for the previous step, given a function cond_fn that
         computes the gradient of a conditional log probability with respect to
@@ -216,24 +228,15 @@ class GaussianDiffusion:
 
         This uses the conditioning strategy from Sohl-Dickstein et al. (2015).
         """
-        gradient = cond_fn(x, self._scale_timesteps(t), **model_kwargs)
+        #print(x.shape,self.s)
+        gradient = cond_fn(x, t)
+        
         new_mean = (
             p_mean_var["mean"].float() + p_mean_var["variance"] * gradient.float()
         )
         return new_mean
         
-    def p_sample(self, model, x, t,cond_fn):
-        out = self.p_mean_variance(model,x,t)
-        noise = th.randn_like(x)
-        nonzero_mask = (
-            (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
-        )  # no noise when t == 0
-        if cond_fn is not None:
-            out["mean"] = self.condition_mean(
-                cond_fn, out, x, t, model_kwargs=model_kwargs
-            )
-        sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
-        return {"sample": sample, "pred_xstart": out["pred_xstart"]}
+    
 
     def p_mean_variance(self, model, x, t):
         model_output = model(x, self._scale_timesteps(t))
@@ -353,8 +356,8 @@ class SpacedDiffusion(GaussianDiffusion):
     ):  # pylint: disable=signature-differs
         return super().training_losses(self._wrap_model(model), *args, **kwargs)
 
-    def condition_mean(self, cond_fn, *args, **kwargs):
-        return super().condition_mean(self._wrap_model(cond_fn), *args, **kwargs)
+    def condition_mean(self, cond_fn, *args):
+        return super().condition_mean(self._wrap_model(cond_fn), *args)
 
     def condition_score(self, cond_fn, *args, **kwargs):
         return super().condition_score(self._wrap_model(cond_fn), *args, **kwargs)
@@ -386,16 +389,24 @@ class _WrappedModel:
         return self.model(x, new_ts, **kwargs)
 
 
+        
 @register_sampler(name='ddpm')
 class DDPM(SpacedDiffusion):
-    def p_sample(self, model, x, t):
+    def p_sample(self, model, x, t, cond_fn):
         out = self.p_mean_variance(model, x, t)
         sample = out['mean']
-
+        
         noise = th.randn_like(x)
+        nonzero_mask = (
+            (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
+        )
         if t != 0:  # no noise when t == 0
             sample += th.exp(0.5 * out['log_variance']) * noise
-
+        if cond_fn is not None:
+            out["mean"] = self.condition_mean(
+                cond_fn, out, x, t
+            )
+        sample = out["mean"] 
         return {'sample': sample, 'pred_xstart': out['pred_xstart']}
     
 
@@ -414,6 +425,7 @@ class DDIM(SpacedDiffusion):
             * th.sqrt(1 - alpha_bar / alpha_bar_prev)
         )
         # Equation 12.
+
         noise = th.randn_like(x)
         mean_pred = (
             out["pred_xstart"] * th.sqrt(alpha_bar_prev)

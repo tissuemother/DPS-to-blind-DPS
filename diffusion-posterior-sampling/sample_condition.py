@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from guided_diffusion.condition_methods import get_conditioning_method
 from guided_diffusion.measurements import get_noise, get_operator
 from guided_diffusion.unet import create_model
+from guided_diffusion import dist_util
 from guided_diffusion.gaussian_diffusion import create_sampler
 from data.dataloader import get_dataset, get_dataloader
 from util.img_utils import clear_color, mask_generator
@@ -40,14 +41,14 @@ def main():
     parser.add_argument('--task_config', type=str)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--save_dir', type=str, default='./results')
-    '''parser.add_argument('--image_size',type=int,default = 256)
+    parser.add_argument('--image_size',type=int,default = 256)
     parser.add_argument('--classifier_use_fp16' , default=True)
     parser.add_argument('--classifier_width' , default=128)
     parser.add_argument('--classifier_pool' , default="attention")
     parser.add_argument('--classifier_depth' , default=2)
     parser.add_argument('--classifier_attention_resolutions' , default="32,16,8")
     parser.add_argument('--classifier_use_scale_shift_norm' , default=True)
-    parser.add_argument('--classifier_resblock_updown' , default=True)'''
+    parser.add_argument('--classifier_resblock_updown' , default=True)
     args = parser.parse_args()
    
     # logger
@@ -71,16 +72,30 @@ def main():
     model = model.to(device)
     model.eval()
     
+    #classifier compatiable how?
+    classifier = create_classifier(**args_to_dict(args,classifier_defaults().keys()))
+    classifier.load_state_dict(
+        dist_util.load_state_dict(args.classifier_path, map_location="cpu")
+    )
+    classifier = classifier.cuda()
+    classifier.eval()
     
-    
-    def cond_fn(x, t, y=None):
-        assert y is not None
+    def cond_fn(x, t,y=None):
+        y=t
         with th.enable_grad():
             x_in = x.detach().requires_grad_(True)
-            logits = classifier(x_in, t)
+            
+            t = t.float()
+            x_in = x_in.float()
+            
+            #print(x_in.type(),t.type())
+            logits = classifier(x_in, t-1)
+            
+            
             log_probs = F.log_softmax(logits, dim=-1)
             selected = log_probs[range(len(logits)), y.view(-1)]
-            return th.autograd.grad(selected.sum(), x_in)[0] * args.classifier_scale
+            print(th.argmax(logits),t,selected.sum())
+            return th.autograd.grad(selected.sum(), x_in)[0] * (t.item()/1000.0)
     
     # Prepare Operator and noise
     measure_config = task_config['measurement']
