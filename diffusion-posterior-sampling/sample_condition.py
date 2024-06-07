@@ -96,9 +96,12 @@ def main():
             selected = log_probs[range(len(logits)), y.view(-1)]
             print(th.argmax(logits),t,selected.sum())
             w 1/(1+t**2)
+            t_pred = th.tensor([th.argmax(logits)]).long().cuda()
             if abs(th.argmax(logits)-t)>20:
                 w = 10
-            return th.autograd.grad(selected.sum(), x_in)[0] * w
+                t_pred = th.tensor([max(t-20,1)]).long().cuda()
+            
+            return th.autograd.grad(selected.sum(), x_in)[0] * w,t_pred
     
     # Prepare Operator and noise
     measure_config = task_config['measurement']
