@@ -95,7 +95,7 @@ def main():
             log_probs = F.log_softmax(logits, dim=-1)
             selected = log_probs[range(len(logits)), y.view(-1)]
             print(th.argmax(logits),t,selected.sum())
-            return th.autograd.grad(selected.sum(), x_in)[0] * (t.item()/1000.0)
+            return th.autograd.grad(selected.sum(), x_in)[0] * (1/(1+t**2))
     
     # Prepare Operator and noise
     measure_config = task_config['measurement']
