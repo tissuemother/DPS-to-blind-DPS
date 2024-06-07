@@ -229,7 +229,7 @@ class GaussianDiffusion:
         This uses the conditioning strategy from Sohl-Dickstein et al. (2015).
         """
         #print(x.shape,self.s)
-        gradient = cond_fn(x, t)
+        gradient = cond_fn(x, t)[0]
         
         new_mean = (
             p_mean_var["mean"].float() + p_mean_var["variance"] * gradient.float()
@@ -393,7 +393,8 @@ class _WrappedModel:
 @register_sampler(name='ddpm')
 class DDPM(SpacedDiffusion):
     def p_sample(self, model, x, t, cond_fn):
-        out = self.p_mean_variance(model, x, t)
+        t_pred = cond_fn(x,t)[1]  #modify later
+        out = self.p_mean_variance(model, x, t_pred)  #if direct guidance t_pred->t
         sample = out['mean']
         
         noise = th.randn_like(x)
