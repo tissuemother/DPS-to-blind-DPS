@@ -95,7 +95,7 @@ def main():
             log_probs = F.log_softmax(logits, dim=-1)
             selected = log_probs[range(len(logits)), y.view(-1)]
             print(th.argmax(logits),t,selected.sum())
-            w 1/(1+t**2)
+            w = 1/(1+t**2)
             t_pred = th.tensor([th.argmax(logits)]).long().cuda()
             if abs(th.argmax(logits)-t)>20:
                 w = 10
