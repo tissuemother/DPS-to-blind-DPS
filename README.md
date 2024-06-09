@@ -1,9 +1,10 @@
 # DPS-to-blind-DPS
 customized time classifier with DPS
 
-guided-diffusion
-script/classifier_train.py     has been modified
-script/classifier_sample.py    has been modified
+실행 방법:
 
+guided-diffusion에서 classifier_train.py 통해 classifier.py 훈련 완료 이후 
 
-guided diffusion repo에서 훈련완료했으면 DPS에서 해당 time classifier 쓸 수 있게 수정했음.
+python sample_condition.py --model_config=configs/model_config.yaml --diffusion_config=configs/diffusion_config.yaml   --classifier_path ./models/model009999.pt --task_config=configs/{task_config}
+
+로 실행 가능함. model pt는 classifier model 제외하곤 pretrained ffhq 사용했음.
