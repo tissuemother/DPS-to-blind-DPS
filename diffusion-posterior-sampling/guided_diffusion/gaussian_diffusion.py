@@ -408,8 +408,8 @@ class _WrappedModel:
         
 @register_sampler(name='ddpm')
 class DDPM(SpacedDiffusion):
-    def p_sample(self, model, x, t, cond_fn):
-        t_pred = cond_fn(x,t)[1]  #modify later
+    def p_sample(self, model, x, t, cond_fn=None):
+        
         out = self.p_mean_variance(model, x, t_pred)  #if direct guidance t_pred->t
         sample = out['mean']
         
