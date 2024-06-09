@@ -198,18 +198,34 @@ class GaussianDiffusion:
             time = th.tensor([idx] * img.shape[0], device=device)
             
             img = img.requires_grad_()
-            out = self.p_sample(x=img, t=time, model=model, cond_fn= cond_fn)
+            img_prime = img.clone()
+            img_prime = img_prime.requires_grad_()
+            out = self.p_sample(x=img, t=time, model=model)
             
             # Give condition.
             noisy_measurement = self.q_sample(measurement, t=time)
-
+            
             # TODO: how can we handle argument for different condition method?
             img, distance = measurement_cond_fn(x_t=out['sample'],
                                       measurement=measurement,
                                       noisy_measurement=noisy_measurement,
                                       x_prev=img,
-                                      x_0_hat=out['pred_xstart'])
-            img = img.detach_()
+                                      x_0_hat=out['pred_xstart']
+                                      )
+            
+            #img = img.detach_()
+            
+            t_pred = cond_fn(img,time)[1]
+            if abs(t_pred.item()-time.item())>10 and idx<820:
+                t_pred = th.clamp(t_pred,min=(time-15).long(), max = (time+15).long())
+                out = self.p_sample(x=img_prime, t=t_pred, model=model)
+                noisy_measurement = self.q_sample(measurement, t=t_pred)
+                img,distance = measurement_cond_fn(x_t=out['sample'],
+                                      measurement=measurement,
+                                      noisy_measurement=noisy_measurement,
+                                      x_prev=img_prime,
+                                      x_0_hat=out['pred_xstart']
+                                      )
            
             pbar.set_postfix({'distance': distance.item()}, refresh=False)
             if record:
