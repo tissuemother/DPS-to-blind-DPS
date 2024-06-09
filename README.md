@@ -1,4 +1,4 @@
-# DPS-to-blind-DPS
+# AI618 YSJ,YRP,SBH
 customized time classifier with DPS
 
 실행 방법:
